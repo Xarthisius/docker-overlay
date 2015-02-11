@@ -1,4 +1,4 @@
-# Copyright 1999-2015 Gentoo Foundation
+# Copyright 1999-2014 Gentoo Foundation
 # Distributed under the terms of the GNU General Public License v2
 # $Header: $
 
@@ -6,58 +6,27 @@ EAPI=5
 
 DESCRIPTION="Docker complements kernel namespacing with a high-level API which operates at the process level"
 HOMEPAGE="https://www.docker.com"
+SRC_URI="https://get.docker.com/ubuntu/pool/main/l/lxc-docker-${PV}/lxc-docker-${PV}_${PV}_amd64.deb"
+KEYWORDS="-* ~amd64"
 
-GITHUB_URI="github.com/docker/docker"
-
-if [[ ${PV} == *9999 ]]; then
-	SRC_URI=""
-	EGIT_REPO_URI="git://${GITHUB_URI}.git"
-	inherit git-2
-else
-	MY_PV="${PV/_/-}"
-	MY_P="${PN}-${MY_PV}"
-	SRC_URI="https://${GITHUB_URI}/archive/v${MY_PV}.tar.gz -> ${MY_P}.tar.gz"
-	S="${WORKDIR}/${MY_P}"
-	DOCKER_GITCOMMIT=""
-	KEYWORDS="~amd64"
-	[ "$DOCKER_GITCOMMIT" ] || die "DOCKER_GITCOMMIT must be added manually for each bump!"
-fi
-
-inherit bash-completion-r1 linux-info multilib systemd udev user
+inherit unpacker linux-info systemd
 
 LICENSE="Apache-2.0"
 SLOT="0"
-IUSE="aufs btrfs +contrib +device-mapper doc lxc vim-syntax zsh-completion"
+IUSE="aufs btrfs +device-mapper lxc"
 
-# https://github.com/docker/docker/blob/master/hack/PACKAGERS.md#build-dependencies
-CDEPEND="
-	>=dev-db/sqlite-3.7.9:3
-	device-mapper? (
-		>=sys-fs/lvm2-2.02.89[thin]
-	)
-"
-
-DEPEND="
-	${CDEPEND}
-	>=dev-lang/go-1.3
-	btrfs? (
-		>=sys-fs/btrfs-progs-3.16.1
-	)
-"
-
+DEPEND=""
 # https://github.com/docker/docker/blob/master/hack/PACKAGERS.md#runtime-dependencies
 # https://github.com/docker/docker/blob/master/hack/PACKAGERS.md#optional-dependencies
 RDEPEND="
-	${CDEPEND}
-
-	!app-emulation/docker-bin
+	!app-emulation/docker
 	>=net-firewall/iptables-1.4
 	sys-process/procps
 	>=dev-vcs/git-1.7
 	>=app-arch/xz-utils-4.9
 
 	lxc? (
-		>=app-emulation/lxc-1.0.7
+		>=app-emulation/lxc-1.0
 	)
 	aufs? (
 		|| (
@@ -68,6 +37,8 @@ RDEPEND="
 "
 
 RESTRICT="installsources strip"
+
+S="${WORKDIR}"
 
 # see "contrib/check-config.sh" from upstream's sources
 CONFIG_CHECK="
@@ -135,90 +106,16 @@ pkg_setup() {
 	linux-info_pkg_setup
 }
 
-src_prepare() {
-	# allow user patches (use sparingly - upstream won't support them)
-	epatch_user
-}
-
-src_compile() {
-	# if we treat them right, Docker's build scripts will set up a
-	# reasonable GOPATH for us
-	export AUTO_GOPATH=1
-
-	# setup CFLAGS and LDFLAGS for separate build target
-	# see https://github.com/tianon/docker-overlay/pull/10
-	export CGO_CFLAGS="-I${ROOT}/usr/include"
-	export CGO_LDFLAGS="-L${ROOT}/usr/$(get_libdir)"
-
-	# if we're building from a zip, we need the GITCOMMIT value
-	[ "$DOCKER_GITCOMMIT" ] && export DOCKER_GITCOMMIT
-
-	if gcc-specs-pie; then
-		sed -i "s/EXTLDFLAGS_STATIC='/EXTLDFLAGS_STATIC='-fno-PIC /" hack/make.sh || die
-		grep -q -- '-fno-PIC' hack/make.sh || die 'hardened sed failed'
-
-		sed -i 's/LDFLAGS_STATIC_DOCKER="/LDFLAGS_STATIC_DOCKER="-extldflags -fno-PIC /' hack/make/dynbinary || die
-		grep -q -- '-fno-PIC' hack/make/dynbinary || die 'hardened sed failed'
-	fi
-
-	# let's set up some optional features :)
-	export DOCKER_BUILDTAGS=''
-	for gd in aufs btrfs device-mapper; do
-		if ! use $gd; then
-			DOCKER_BUILDTAGS+=" exclude_graphdriver_${gd//-/}"
-		fi
-	done
-
-	# time to build!
-	./hack/make.sh dynbinary || die 'dynbinary failed'
-
-	# TODO get go-md2man and then include the man pages using docs/man/md2man-all.sh
-}
-
 src_install() {
-	VERSION=$(cat VERSION)
-	newbin bundles/$VERSION/dynbinary/docker-$VERSION docker
-	exeinto /usr/libexec/docker
-	newexe bundles/$VERSION/dynbinary/dockerinit-$VERSION dockerinit
+	dobin usr/bin/docker
 
-	newinitd contrib/init/openrc/docker.initd docker
-	newconfd contrib/init/openrc/docker.confd docker
+	newinitd "${FILESDIR}/docker-r3.initd" docker
+	newconfd "${FILESDIR}/docker-r3.confd" docker
 
-	systemd_dounit contrib/init/systemd/docker.{service,socket}
-
-	udev_dorules contrib/udev/*.rules
-
-	dodoc AUTHORS CONTRIBUTING.md CHANGELOG.md NOTICE README.md
-	if use doc; then
-		# TODO doman contrib/man/man*/*
-
-		docompress -x /usr/share/doc/${PF}/md
-		docinto md
-		dodoc -r docs/sources/*
-	fi
-
-	dobashcomp contrib/completion/bash/*
-
-	if use zsh-completion; then
-		insinto /usr/share/zsh/site-functions
-		doins contrib/completion/zsh/*
-	fi
-
-	if use vim-syntax; then
-		insinto /usr/share/vim/vimfiles
-		doins -r contrib/syntax/vim/ftdetect
-		doins -r contrib/syntax/vim/syntax
-	fi
-
-	if use contrib; then
-		mkdir -p "${D}/usr/share/${PN}/contrib"
-		cp -R contrib/* "${D}/usr/share/${PN}/contrib"
-	fi
+	systemd_dounit "${FILESDIR}/docker.service"
 }
 
 pkg_postinst() {
-	udev_reload
-
 	elog ""
 	elog "To use Docker, the Docker daemon must be running as root. To automatically"
 	elog "start the Docker daemon at boot, add Docker to the default runlevel:"

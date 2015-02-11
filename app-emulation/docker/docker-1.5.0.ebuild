@@ -18,7 +18,7 @@ else
 	MY_P="${PN}-${MY_PV}"
 	SRC_URI="https://${GITHUB_URI}/archive/v${MY_PV}.tar.gz -> ${MY_P}.tar.gz"
 	S="${WORKDIR}/${MY_P}"
-	DOCKER_GITCOMMIT=""
+	DOCKER_GITCOMMIT="a8a31ef"
 	KEYWORDS="~amd64"
 	[ "$DOCKER_GITCOMMIT" ] || die "DOCKER_GITCOMMIT must be added manually for each bump!"
 fi
