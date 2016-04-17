@@ -12,7 +12,7 @@ if [[ ${PV} == *9999 ]]; then
 	inherit golang-vcs
 else
 	MY_PV="${PV/_/-}"
-	EGIT_COMMIT="${MY_PV}"
+	EGIT_COMMIT="v${MY_PV}"
 	SRC_URI="https://github.com/docker/${PN}/archive/${EGIT_COMMIT}.tar.gz -> ${P}.tar.gz"
 	KEYWORDS="~amd64"
 	inherit golang-vcs-snapshot
@@ -22,7 +22,6 @@ DESCRIPTION="A daemon to control runC"
 HOMEPAGE="https://containerd.tools"
 LICENSE="Apache-2.0"
 SLOT="0"
-KEYWORDS=""
 IUSE=""
 
 DEPEND=""
@@ -36,8 +35,7 @@ src_prepare() {
 src_compile() {
 	cd "src/${EGO_PN}" || die
 	export GOPATH="${WORKDIR}/${P}" # ${PWD}/vendor
-	[ -z "$EGIT_COMMIT" ] || export GIT_COMMIT="$EGIT_COMMIT"
-	make LDFLAGS=
+	LDFLAGS= make GIT_COMMIT="$EGIT_COMMIT"
 }
 
 src_install() {
