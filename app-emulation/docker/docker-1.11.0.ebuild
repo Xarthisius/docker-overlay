@@ -42,6 +42,7 @@ CDEPEND="
 DEPEND="
 	${CDEPEND}
 
+	>=dev-lang/go-1.4:=
 	dev-go/go-md2man
 
 	btrfs? (
@@ -172,7 +173,7 @@ pkg_setup() {
 
 src_prepare() {
 	cd "src/${EGO_PN}" || die
-	epatch "${FILESDIR}/docker-containerd.patch"
+	sed -i 's/docker-containerd/containerd/g; s/docker-runc/runc/g' libcontainerd/remote_linux.go
 	# allow user patches (use sparingly - upstream won't support them)
 	epatch_user
 }
@@ -230,8 +231,6 @@ src_install() {
 	cd "src/${EGO_PN}" || die
 	VERSION="$(cat VERSION)"
 	newbin "bundles/$VERSION/dynbinary/docker-$VERSION" docker
-	#exeinto /usr/libexec/docker
-	#newexe "bundles/$VERSION/dynbinary/dockerinit-$VERSION" dockerinit
 
 	newinitd contrib/init/openrc/docker.initd docker
 	newconfd contrib/init/openrc/docker.confd docker

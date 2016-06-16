@@ -13,7 +13,7 @@ if [[ ${PV} = *9999* ]]; then
 	inherit git-r3
 else
 	MY_PV="${PV/_/-}"
-	DOCKER_GITCOMMIT=""
+	DOCKER_GITCOMMIT="5604cbe"
 	EGIT_COMMIT="v${MY_PV}"
 	SRC_URI="https://${EGO_PN}/archive/${EGIT_COMMIT}.tar.gz -> ${P}.tar.gz"
 	KEYWORDS="~amd64 ~arm ~x86"
@@ -60,8 +60,8 @@ RDEPEND="
 	>=dev-vcs/git-1.7
 	>=app-arch/xz-utils-4.9
 
-	>app-emulation/containerd-0.2.2
-	app-emulation/runc[apparmor?,seccomp?]
+	>=app-emulation/containerd-0.2.0
+	>=app-emulation/runc-0.1.0[apparmor?,seccomp?]
 "
 
 RESTRICT="installsources strip"
@@ -225,8 +225,7 @@ src_compile() {
 src_install() {
 	cd "src/${EGO_PN}" || die
 	VERSION="$(cat VERSION)"
-	newbin "bundles/$VERSION/dynbinary-client/docker-$VERSION" docker
-	newbin "bundles/$VERSION/dynbinary-daemon/dockerd-$VERSION" dockerd
+	newbin "bundles/$VERSION/dynbinary/docker-$VERSION" docker
 
 	newinitd contrib/init/openrc/docker.initd docker
 	newconfd contrib/init/openrc/docker.confd docker
